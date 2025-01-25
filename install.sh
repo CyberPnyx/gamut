@@ -23,7 +23,7 @@ mount /dev/vg_arch/boot /mnt/boot
 reflector --country France --age 12 --protocol https --sort rate --save /etc/pacman.d/mirrorlist
 pacstrap -K /mnt base linux linux-firmware networkmanager nano vim lvm2 grub plasma-meta sddm xorg xorg-server konsole dolphin openssh
 genfstab -U /mnt >> /mnt/etc/fstab
-curl -o /mnt/settings.sh https://github.com/CyberPnyx/gamut/blob/main/settings.sh
+curl -O https://raw.githubusercontent.com/CyberPnyx/gamut/main/settings.sh
 chmod +x /mnt/settings.sh
 echo -e "\e[34;1mInstallation finished\e[0m"
 echo -e "\e[34;1mPlease execute \"arch-chroot /mnt /bin/bash\" and then \"./settings.sh\"\e[0m"
