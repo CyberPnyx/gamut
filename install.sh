@@ -35,7 +35,7 @@ mount /dev/vg_arch/boot /mnt/boot
 reflector --country France --age 12 --protocol https --sort rate --save /etc/pacman.d/mirrorlist
 
 # Installation de base
-pacstrap -K /mnt base linux linux-firmware networkmanager nano vim emacs lvm2 grub plasma-meta sddm xorg xorg-server konsole dolphin openssh
+pacstrap -K /mnt base linux linux-firmware networkmanager nano vim emacs lvm2 grub plasma-meta plasma-desktop sddm xorg xorg-server konsole dolphin openssh
 
 # Génération du fstab
 genfstab -U /mnt >> /mnt/etc/fstab
@@ -49,3 +49,5 @@ echo -e "\e[34;1mInstallation finished\e[0m"
 echo -e "\e[34;1mPlease execute the following commands:\e[0m"
 echo -e "\e[33;1march-chroot /mnt /bin/bash\e[0m"
 echo -e "\e[33;1m./settings.sh\e[0m"
+
+echo -e "\e[34;1mPlease reboot your system after running the settings script.\e[0m"
