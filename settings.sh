@@ -4,7 +4,7 @@ ln -sf /usr/share/zoneinfo/Europe/Paris /etc/localtime
 hwclock --systohc --utc
 echo -e "\e[33;1mRemove the \"#\" of the \"en_US.UTF-8\" line\e[0m"
 sleep 10
-vim /etc/locale.gen
+emacs /etc/locale.gen
 locale-gen
 echo "KEYMAP=fr" > /etc/vconsole.conf
 export KEYMAP=fr

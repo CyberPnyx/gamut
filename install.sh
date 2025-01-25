@@ -35,7 +35,7 @@ mount /dev/vg_arch/boot /mnt/boot
 reflector --country France --age 12 --protocol https --sort rate --save /etc/pacman.d/mirrorlist
 
 # Installation de base
-pacstrap -K /mnt base linux linux-firmware networkmanager nano vim lvm2 grub plasma-meta sddm xorg xorg-server konsole dolphin openssh
+pacstrap -K /mnt base linux linux-firmware networkmanager nano vim emacs lvm2 grub plasma-meta sddm xorg xorg-server konsole dolphin openssh
 
 # Génération du fstab
 genfstab -U /mnt >> /mnt/etc/fstab
