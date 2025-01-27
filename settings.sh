@@ -1,5 +1,8 @@
 #!/bin/bash
 
+#installer le grpahique
+pacman -S xorg-server xorg-xinit plasma-desktop sddm konsole dolphin firefox emacs
+
 ln -sf /usr/share/zoneinfo/Europe/Paris /etc/localtime
 hwclock --systohc --utc
 echo -e "\e[33;1mRemove the \"#\" of the \"en_US.UTF-8\" line\e[0m"
@@ -27,12 +30,6 @@ echo -e "\e[33;1mSet the password for \"dumbledore\"\e[0m"
 passwd dumbledore
 echo -e "\e[33;1mGrant sudo access to \"dumbledore\"\e[0m"
 echo "dumbledore ALL=(ALL:ALL) NOPASSWD: ALL" >> /etc/sudoers
-
-# Mount Parrot OS Home Partition
-echo -e "\e[33;1mAdd Parrot OS home partition to fstab\e[0m"
-echo "UUID=parrot_home_partition_UUID /mnt/parrot_home ext4 defaults 0 2" >> /etc/fstab
-mkdir /mnt/parrot_home
-mount -a
 
 # SSH Server
 echo -e "\e[33;1mConfiguring SSH server\e[0m"

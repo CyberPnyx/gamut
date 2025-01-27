@@ -35,14 +35,10 @@ mount /dev/vg_arch/boot /mnt/boot
 reflector --country France --age 12 --protocol https --sort rate --save /etc/pacman.d/mirrorlist
 
 # Installation de base
-pacstrap -K /mnt base linux linux-firmware networkmanager nano vim emacs lvm2 grub plasma-meta plasma-desktop sddm xorg xorg-server konsole dolphin openssh
+pacstrap /mnt base linux linux-firmware networkmanager nano vim lvm2 grub openssh
 
 # Génération du fstab
 genfstab -U /mnt >> /mnt/etc/fstab
-
-# Téléchargement du script de configuration
-curl -o /mnt/settings.sh https://raw.githubusercontent.com/CyberPnyx/gamut/main/settings.sh
-chmod +x /mnt/settings.sh
 
 # Fin de l'installation
 echo -e "\e[34;1mInstallation finished\e[0m"
