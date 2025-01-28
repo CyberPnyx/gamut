@@ -3,7 +3,7 @@ set -e
 
 # Variables
 DISK="/dev/sda"
-HOSTNAME="client_s${USER}"
+HOSTNAME="client_julien"
 LVM_VG="arch_vg"
 CRYPTNAME="cryptlvm"
 
