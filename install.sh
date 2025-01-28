@@ -18,7 +18,7 @@ lvcreate -L 5G -n home vg_arch
 lvcreate -L 500M -n swap vg_arch
 
 # Formatage des partitions
-mkfs.ext2 /dev/vg_arch/boot
+mkfs.fat -F 32 /dev/vg_arch/boot
 mkfs.ext4 /dev/vg_arch/root
 mkfs.ext4 /dev/vg_arch/home
 mkswap /dev/vg_arch/swap
