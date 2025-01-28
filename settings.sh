@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #installer le grpahique
-pacman -S xorg-server xorg-xinit plasma-desktop sddm konsole dolphin firefox emacs
+pacman -S xorg-server xorg-xinit plasma-desktop sddm konsole dolphin firefox emacs grub
 
 ln -sf /usr/share/zoneinfo/Europe/Paris /etc/localtime
 hwclock --systohc --utc
