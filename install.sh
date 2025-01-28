@@ -1,108 +1,105 @@
 #!/bin/bash
-set -e
 
-# Variables
-DISK="/dev/sda"
-HOSTNAME="client_julien"
-LVM_VG="arch_vg"
-CRYPTNAME="cryptlvm"
+# --------------------------------------------------
+# Script d'installation de Arch Linux + KDE Plasma
+# À exécuter depuis l'ISO Arch en mode UEFI
+# --------------------------------------------------
 
-# Partitionnement avec UEFI
-parted --script "${DISK}" \
-    mklabel gpt \
-    mkpart "EFI" fat32 1MiB 513MiB \
-    set 1 esp on \
-    mkpart "LVM" 513MiB 100% 
+# Désactiver le mode lecture seule
+mount -o remount,rw /mnt
 
-# Cryptsetup pour partition LVM
-echo "password" | cryptsetup luksFormat "${DISK}2"
-echo "password" | cryptsetup open "${DISK}2" "${CRYPTNAME}"
+# ---------------------------------------------------------------------
+# Configuration manuelle (À MODIFIER AVANT EXÉCUTION !)
+# ---------------------------------------------------------------------
+DISK="/dev/sda"               # Disque à formater
+USERNAME="archuser"           # Nom d'utilisateur
+HOSTNAME="archplasma"         # Nom de la machine
+TIMEZONE="Europe/Paris"       # Fuseau horaire
+LANG="fr_FR.UTF-8"            # Langue système
+KEYMAP="fr-latin9"            # Clavier
+ROOT_PASSWORD="root"          # Mot de passe root
+USER_PASSWORD="user"          # Mot de passe utilisateur
+# ---------------------------------------------------------------------
 
-# Configuration LVM
-pvcreate "/dev/mapper/${CRYPTNAME}"
-vgcreate "${LVM_VG}" "/dev/mapper/${CRYPTNAME}"
-lvcreate -L 15G -n root "${LVM_VG}"
-lvcreate -L 5G -n home "${LVM_VG}"
-lvcreate -L 400M -n boot "${LVM_VG}"
-lvcreate -L 500M -n swap "${LVM_VG}"
+# Partitions (UEFI)
+EFI_PART="${DISK}1"
+ROOT_PART="${DISK}2"
+
+# Vérification de la connexion Internet
+ping -c 3 archlinux.org || { echo "Pas de connexion Internet!"; exit 1; }
+
+# Synchronisation de l'horloge
+timedatectl set-ntp true
+
+# Nettoyage du disque
+echo "Effacement du disque..."
+sgdisk --zap-all $DISK
+partprobe $DISK
+
+# Partitionnement (GPT/UEFI)
+echo "Création des partitions..."
+parted $DISK mklabel gpt
+parted $DISK mkpart "EFI" fat32 1MiB 513MiB
+parted $DISK set 1 esp on
+parted $DISK mkpart "ROOT" ext4 513MiB 100%
 
 # Formatage
-mkfs.fat -F32 "${DISK}1"
-mkfs.ext4 -O "^has_journal" "/dev/${LVM_VG}/boot"
-mkfs.ext4 "/dev/${LVM_VG}/root"
-mkfs.ext4 "/dev/${LVM_VG}/home"
-mkswap "/dev/${LVM_VG}/swap"
+echo "Formatage des partitions..."
+mkfs.fat -F32 $EFI_PART
+mkfs.ext4 $ROOT_PART
 
 # Montage
-mount "/dev/${LVM_VG}/root" /mnt
-mkdir -p /mnt/{boot,home}
-mount "/dev/${LVM_VG}/boot" /mnt/boot
-mount "/dev/${LVM_VG}/home" /mnt/home
-swapon "/dev/${LVM_VG}/swap"
+mount $ROOT_PART /mnt
+mkdir /mnt/boot
+mount $EFI_PART /mnt/boot
 
-# Installation paquets de base
-pacstrap /mnt base base-devel linux linux-firmware lvm2 neovim
+# Installation des paquets de base
+echo "Installation des paquets de base..."
+pacstrap /mnt base base-devel linux linux-firmware nano reflector
 
-# Génération fstab
-genfstab -U /mnt >> /mnt/etc/fstab
+# Génération du fstab
+genfstab -U /mnt >> /mnt/mnt/fstab
 
 # Configuration système
 arch-chroot /mnt /bin/bash <<EOF
-set -e
+    # Configuration de base
+    echo "$HOSTNAME" > /etc/hostname
+    ln -sf /usr/share/zoneinfo/$TIMEZONE /etc/localtime
+    hwclock --systohc
 
-# Locales
-echo "en_US.UTF-8 UTF-8" > /etc/locale.gen
-echo "LANG=en_US.UTF-8" > /etc/locale.conf
-locale-gen
+    # Localisation
+    sed -i "s/#$LANG/$LANG/" /etc/locale.gen
+    echo "LANG=$LANG" > /etc/locale.conf
+    echo "KEYMAP=$KEYMAP" > /etc/vconsole.conf
+    locale-gen
 
-# Clavier (remplacer fr par votre layout)
-echo "KEYMAP=fr" > /etc/vconsole.conf
+    # Mise à jour miroirs
+    reflector --country France --latest 10 --protocol https --sort rate --save /etc/pacman.d/mirrorlist
 
-# Fuseau horaire (remplacer Europe/Paris par votre zone)
-ln -sf /usr/share/zoneinfo/Europe/Paris /etc/localtime
-hwclock --systohc
+    # Initialisation
+    mkinitcpio -P
 
-# Hostname
-echo "${HOSTNAME}" > /etc/hostname
+    # Mot de passe root
+    echo "root:$ROOT_PASSWORD" | chpasswd
 
-# Initramfs
-sed -i 's/^HOOKS=.*/HOOKS=(base udev autodetect keyboard keymap modconf block encrypt lvm2 filesystems fsck)/' /etc/mkinitcpio.conf
-mkinitcpio -P
+    # Installation KDE Plasma
+    pacman -Syu --noconfirm xorg sddm plasma kde-applications dolphin firefox plasma-wayland-session
 
-# Bootloader
-bootctl install
-cat <<EOL > /boot/loader/entries/arch.conf
-title Arch Linux
-linux /vmlinuz-linux
-initrd /initramfs-linux.img
-options cryptdevice=UUID=$(blkid -s UUID -o value "${DISK}2"):${CRYPTNAME} root=/dev/${LVM_VG}/root quiet rw
-EOL
+    # Activer services
+    systemctl enable sddm
+    systemctl enable NetworkManager
 
-# Utilisateurs et groupes
-groupadd asso
-groupadd managers
-groupadd Hogwarts
-useradd -m -G asso,Hogwarts turban
-useradd -m -G managers,Hogwarts dumbledore
+    # Création utilisateur
+    useradd -m -G wheel -s /bin/bash $USERNAME
+    echo "$USERNAME:$USER_PASSWORD" | chpasswd
+    sed -i 's/# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/' /etc/sudoers
 
-# Plasma KDE
-pacman -Syu --noconfirm xorg plasma kde-applications sddm
-systemctl enable sddm
-
-# Configuration SSH
-pacman -S --noconfirm openssh
-sed -i 's/#Port 22/Port 42/' /etc/ssh/sshd_config
-echo "PermitRootLogin no" >> /etc/ssh/sshd_config
-echo "PasswordAuthentication no" >> /etc/ssh/sshd_config
-systemctl enable sshd
-
-# Montage automatique Parrot OS (à adapter avec UUID réel)
-echo "UUID=PARROT_HOME_UUID /home/parrot ext4 defaults,nofail 0 0" >> /etc/fstab
-
-# Configuration finale
-passwd -d root
-exit
+    # Pilotes graphiques (Décommenter selon besoin)
+    # pacman -S --noconfirm nvidia nvidia-utils    # NVIDIA
+    # pacman -S --noconfirm mesa vulkan-intel      # Intel
+    # pacman -S --noconfirm mesa vulkan-radeon     # AMD
 EOF
 
+# Nettoyage final
 umount -R /mnt
-swapoff -a
+systemctl reboot
