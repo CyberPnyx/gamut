@@ -1,105 +1,101 @@
 #!/bin/bash
 
-# --------------------------------------------------
-# Script d'installation de Arch Linux + KDE Plasma
-# À exécuter depuis l'ISO Arch en mode UEFI
-# --------------------------------------------------
+# Partie 1 - Installation de base
+if [ ! -f /mnt/etc/fstab ]; then
+    # Partitionnement du disque
+    parted /dev/sda --script mklabel gpt
+    parted /dev/sda --script mkpart ESP fat32 1MiB 401MiB
+    parted /dev/sda --script set 1 esp on
+    parted /dev/sda --script mkpart primary 401MiB 22.4GiB
 
-# Désactiver le mode lecture seule
-mount -o remount,rw /mnt
+    # Configuration LVM
+    pvcreate /dev/sda2
+    vgcreate arch_vg /dev/sda2
+    lvcreate -L 15G -n root arch_vg
+    lvcreate -L 5G -n home arch_vg
+    lvcreate -L 400M -n boot arch_vg
+    lvcreate -L 500M -n swap arch_vg
 
-# ---------------------------------------------------------------------
-# Configuration manuelle (À MODIFIER AVANT EXÉCUTION !)
-# ---------------------------------------------------------------------
-DISK="/dev/sda"               # Disque à formater
-USERNAME="archuser"           # Nom d'utilisateur
-HOSTNAME="archplasma"         # Nom de la machine
-TIMEZONE="Europe/Paris"       # Fuseau horaire
-LANG="fr_FR.UTF-8"            # Langue système
-KEYMAP="fr-latin9"            # Clavier
-ROOT_PASSWORD="root"          # Mot de passe root
-USER_PASSWORD="user"          # Mot de passe utilisateur
-# ---------------------------------------------------------------------
+    # Formatage des partitions
+    mkfs.fat -F32 /dev/sda1
+    mkfs.ext4 /dev/arch_vg/root
+    mkfs.ext4 /dev/arch_vg/home
+    mkfs.ext2 /dev/arch_vg/boot
+    mkswap /dev/arch_vg/swap
+    swapon /dev/arch_vg/swap
 
-# Partitions (UEFI)
-EFI_PART="${DISK}1"
-ROOT_PART="${DISK}2"
+    # Montage des partitions
+    mount /dev/arch_vg/root /mnt
+    mkdir -p /mnt/{home,boot,efi}
+    mount /dev/arch_vg/home /mnt/home
+    mount /dev/arch_vg/boot /mnt/boot
+    mount /dev/sda1 /mnt/boot/efi
 
-# Vérification de la connexion Internet
-ping -c 3 archlinux.org || { echo "Pas de connexion Internet!"; exit 1; }
+    # Installation du système de base
+    pacstrap /mnt base linux linux-firmware lvm2
+    genfstab -U /mnt >> /mnt/etc/fstab
 
-# Synchronisation de l'horloge
-timedatectl set-ntp true
-
-# Nettoyage du disque
-echo "Effacement du disque..."
-sgdisk --zap-all $DISK
-partprobe $DISK
-
-# Partitionnement (GPT/UEFI)
-echo "Création des partitions..."
-parted $DISK mklabel gpt
-parted $DISK mkpart "EFI" fat32 1MiB 513MiB
-parted $DISK set 1 esp on
-parted $DISK mkpart "ROOT" ext4 513MiB 100%
-
-# Formatage
-echo "Formatage des partitions..."
-mkfs.fat -F32 $EFI_PART
-mkfs.ext4 $ROOT_PART
-
-# Montage
-mount $ROOT_PART /mnt
-mkdir /mnt/boot
-mount $EFI_PART /mnt/boot
-
-# Installation des paquets de base
-echo "Installation des paquets de base..."
-pacstrap /mnt base base-devel linux linux-firmware nano reflector
-
-# Génération du fstab
-genfstab -U /mnt >> /mnt/mnt/fstab
-
-# Configuration système
-arch-chroot /mnt /bin/bash <<EOF
+    # Configuration dans l'environnement chroot
+    arch-chroot /mnt /bin/bash <<EOF
     # Configuration de base
-    echo "$HOSTNAME" > /etc/hostname
-    ln -sf /usr/share/zoneinfo/$TIMEZONE /etc/localtime
+    ln -sf /usr/share/zoneinfo/Europe/Paris /etc/localtime
     hwclock --systohc
-
-    # Localisation
-    sed -i "s/#$LANG/$LANG/" /etc/locale.gen
-    echo "LANG=$LANG" > /etc/locale.conf
-    echo "KEYMAP=$KEYMAP" > /etc/vconsole.conf
+    echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen
     locale-gen
+    echo "LANG=en_US.UTF-8" > /etc/locale.conf
+    echo "KEYMAP=fr" > /etc/vconsole.conf
+    echo "archlinux" > /etc/hostname
 
-    # Mise à jour miroirs
-    reflector --country France --latest 10 --protocol https --sort rate --save /etc/pacman.d/mirrorlist
-
-    # Initialisation
+    # Configuration de GRUB
+    pacman -S grub efibootmgr dosfstools os-prober nano --noconfirm
+    grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=ArchLinux
+    sed -i '/^HOOKS=/ s/block/& lvm2/' /etc/mkinitcpio.conf
     mkinitcpio -P
+    grub-mkconfig -o /boot/grub/grub.cfg
 
     # Mot de passe root
-    echo "root:$ROOT_PASSWORD" | chpasswd
-
-    # Installation KDE Plasma
-    pacman -Syu --noconfirm xorg sddm plasma kde-applications dolphin firefox plasma-wayland-session
-
-    # Activer services
-    systemctl enable sddm
-    systemctl enable NetworkManager
-
-    # Création utilisateur
-    useradd -m -G wheel -s /bin/bash $USERNAME
-    echo "$USERNAME:$USER_PASSWORD" | chpasswd
-    sed -i 's/# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/' /etc/sudoers
-
-    # Pilotes graphiques (Décommenter selon besoin)
-    # pacman -S --noconfirm nvidia nvidia-utils    # NVIDIA
-    # pacman -S --noconfirm mesa vulkan-intel      # Intel
-    # pacman -S --noconfirm mesa vulkan-radeon     # AMD
+    echo "root:1234" | chpasswd
 EOF
 
-# Nettoyage final
-umount -R /mnt
-systemctl reboot
+    # Nettoyage final
+    umount -R /mnt
+    echo "Installation terminée ! Redémarrez et exécutez le script à nouveau pour la configuration finale."
+    exit
+fi
+
+# Partie 2 - Post-installation (à exécuter après le premier redémarrage)
+if [ $(whoami) != "root" ]; then
+    echo "Veuillez exécuter ce script en tant que root"
+    exit 1
+fi
+
+# Création des groupes
+groupadd asso
+groupadd Hogwarts
+groupadd managers
+
+# Création des utilisateurs
+useradd -m -g asso -G Hogwarts turban
+useradd -m -g managers -G Hogwarts dumbledore
+
+# Définition des mots de passe
+echo "Définissez le mot de passe pour turban:"
+passwd turban
+echo "Définissez le mot de passe pour dumbledore:"
+passwd dumbledore
+
+# Configuration réseau
+cat > /etc/systemd/network/20-wired.network <<EOF
+[Match]
+Name=enp0s3
+
+[Network]
+DHCP=yes
+EOF
+
+systemctl restart systemd-networkd
+systemctl enable systemd-resolved
+systemctl start systemd-resolved
+ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
+
+echo "Configuration finale terminée !"
