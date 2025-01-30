@@ -15,6 +15,12 @@ echo "Début de l'installation automatique de Parrot OS..."
 echo "Installation des paquets nécessaires..."
 apt update && apt install -y parted debootstrap sudo openssh-server vim bash-completion locales
 
+### VERIFICATION DES DROITS ROOT ###
+if [ "$EUID" -ne 0 ]; then
+  echo "Ce script doit être exécuté en tant que root ! Utilisez sudo."
+  exit 1
+fi
+
 ### PARTITIONNEMENT ###
 echo "Partitionnement du disque..."
 parted -s $DISK mklabel gpt
@@ -31,14 +37,14 @@ swapon ${DISK}2
 
 ### MONTAGE DES PARTITIONS ###
 echo "Montage des partitions..."
-mount ${DISK}3 /mnt
+mount ${DISK}3 /mnt || { echo "Erreur de montage de /mnt"; exit 1; }
 mkdir -p /mnt/{boot,home}
-mount ${DISK}1 /mnt/boot
-mount ${DISK}4 /mnt/home
+mount ${DISK}1 /mnt/boot || { echo "Erreur de montage de /mnt/boot"; exit 1; }
+mount ${DISK}4 /mnt/home || { echo "Erreur de montage de /mnt/home"; exit 1; }
 
 ### INSTALLATION DU SYSTEME ###
 echo "Installation du système..."
-debootstrap stable /mnt https://deb.parrot.sh/parrot/
+debootstrap stable /mnt https://deb.parrot.sh/parrot/ || { echo "Erreur lors de debootstrap"; exit 1; }
 
 ### CONFIGURATION DU SYSTEME ###
 echo "Configuration du système..."
@@ -86,5 +92,5 @@ EOF
 
 ### FINALISATION ###
 echo "Installation terminée ! Vous pouvez redémarrer la machine."
-umount -R /mnt
+umount -R /mnt || echo "Échec du démontage de /mnt"
 reboot
