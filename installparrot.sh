@@ -32,8 +32,9 @@ parted -s $DISK mkpart primary ext4 $(($PART_BOOT + $PART_SWAP + $PART_ROOT)) 10
 # Forcer l'écriture des changements sur le disque
 sync
 
-echo "Les partitions ont été créées. Veuillez redémarrer la machine et relancer ce script."
-exit 0
+# Notifier le noyau des modifications
+partprobe $DISK
+udevadm settle
 
 ### MONTAGE DES PARTITIONS ###
 echo "Montage des partitions..."
