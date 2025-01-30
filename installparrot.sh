@@ -29,11 +29,11 @@ parted -s $DISK mkpart primary linux-swap $PART_BOOT $(($PART_BOOT + $PART_SWAP)
 parted -s $DISK mkpart primary ext4 $(($PART_BOOT + $PART_SWAP)) $(($PART_BOOT + $PART_SWAP + $PART_ROOT))
 parted -s $DISK mkpart primary ext4 $(($PART_BOOT + $PART_SWAP + $PART_ROOT)) 100%
 
-mkfs.ext4 ${DISK}3  # Root
-mkfs.ext4 ${DISK}4  # Home
-mkfs.vfat -F32 ${DISK}1  # Boot
-mkswap ${DISK}2  # Swap
-swapon ${DISK}2
+# Forcer l'écriture des changements sur le disque
+sync
+
+echo "Les partitions ont été créées. Veuillez redémarrer la machine et relancer ce script."
+exit 0
 
 ### MONTAGE DES PARTITIONS ###
 echo "Montage des partitions..."
