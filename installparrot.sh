@@ -9,10 +9,14 @@ PART_HOME="5G"
 PART_BOOT="500M"
 PART_SWAP="500M"
 
-echo "🚀 Début de l'installation automatique de Parrot OS..."
+echo "Début de l'installation automatique de Parrot OS..."
+
+### INSTALLATION DES DEPENDANCES ###
+echo "Installation des paquets nécessaires..."
+apt update && apt install -y parted debootstrap sudo openssh-server vim bash-completion locales
 
 ### PARTITIONNEMENT ###
-echo "📌 Partitionnement du disque..."
+echo "Partitionnement du disque..."
 parted -s $DISK mklabel gpt
 parted -s $DISK mkpart primary ext4 1MiB $PART_BOOT
 parted -s $DISK mkpart primary linux-swap $PART_BOOT $(($PART_BOOT + $PART_SWAP))
@@ -26,18 +30,18 @@ mkswap ${DISK}2  # Swap
 swapon ${DISK}2
 
 ### MONTAGE DES PARTITIONS ###
-echo "📌 Montage des partitions..."
+echo "Montage des partitions..."
 mount ${DISK}3 /mnt
 mkdir -p /mnt/{boot,home}
 mount ${DISK}1 /mnt/boot
 mount ${DISK}4 /mnt/home
 
 ### INSTALLATION DU SYSTEME ###
-echo "📌 Installation du système..."
+echo "Installation du système..."
 debootstrap stable /mnt https://deb.parrot.sh/parrot/
 
 ### CONFIGURATION DU SYSTEME ###
-echo "📌 Configuration du système..."
+echo "Configuration du système..."
 echo "parrot" > /mnt/etc/hostname
 echo "127.0.1.1 parrot" >> /mnt/etc/hosts
 
@@ -56,7 +60,6 @@ chroot /mnt /bin/bash <<EOF
 
 # Mise à jour et installation de paquets
 apt update && apt upgrade -y
-apt install -y sudo openssh-server vim bash-completion locales
 
 # Configuration locale
 sed -i 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen
@@ -82,6 +85,6 @@ systemctl enable ssh
 EOF
 
 ### FINALISATION ###
-echo "📌 Installation terminée ! Vous pouvez redémarrer la machine."
+echo "Installation terminée ! Vous pouvez redémarrer la machine."
 umount -R /mnt
 reboot
